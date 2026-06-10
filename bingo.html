@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ビンゴ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  #num {
+    font-size: min(55vw, 70vh);
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: #000000;
+  }
+  #num.final { color: #e0000d; }
+  #count {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    font-size: clamp(16px, 4vw, 24px);
+    font-weight: 600;
+    color: #666666;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div id="count">0</div>
+<div id="num">—</div>
+<audio id="roll" preload="auto">
+  <source src="roll.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+(function(){
+  var LOCK_TIME = 2.52;
+  var NUMBERS = [45, 41, 33, 19, 38, 11, 31, 29, 4, 46, 9, 23, 3, 32, 37];        // the only numbers that can appear
+  var FORCE_LAST = 37;   // must come out on the final draw
+  var TOTAL = NUMBERS.length;
+
+  // Build the draw order: shuffle the non-final numbers, put FORCE_LAST at the end.
+  function buildOrder(){
+    var rest = NUMBERS.filter(function(n){ return n !== FORCE_LAST; });
+    for(var i = rest.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = rest[i]; rest[i] = rest[j]; rest[j] = t;
+    }
+    rest.push(FORCE_LAST);
+    return rest;
+  }
+  var order = buildOrder();
+
+  var drawnSet = new Set();
+  var count = 0;
+  var state = "idle";
+  var finished = false;
+  var spinIv = null;
+  var lockTimer = null;
+  var rollAudio = document.getElementById('roll');
+  var numEl = document.getElementById('num');
+  var countEl = document.getElementById('count');
+
+  // during spin, flicker through ALL 15 numbers (visual only, independent of draws)
+  function spinTick(){
+    numEl.textContent = NUMBERS[Math.floor(Math.random() * NUMBERS.length)];
+  }
+
+  function lockResult(){
+    if(state !== "spinning") return;
+    clearInterval(spinIv);
+    var pick = order[count];   // deterministic order, FORCE_LAST is last
+    drawnSet.add(pick);
+    count++;
+    numEl.textContent = pick;
+    countEl.textContent = count;
+    state = "idle";
+    if(count >= TOTAL){
+      numEl.classList.add('final');
+      finished = true;
+    }
+  }
+
+  function watchTime(){
+    if(state === "spinning" && rollAudio.currentTime >= LOCK_TIME){
+      lockResult();
+    }
+  }
+  rollAudio.addEventListener('timeupdate', watchTime);
+
+  function startSpin(){
+    if(finished) return;
+    state = "spinning";
+    try { rollAudio.currentTime = 0; rollAudio.play(); } catch(e){}
+    spinIv = setInterval(spinTick, 70);
+    if(lockTimer) clearTimeout(lockTimer);
+    lockTimer = setTimeout(lockResult, LOCK_TIME * 1000);
+  }
+
+  function trigger(){
+    if(finished) return;
+    if(state === "idle"){ startSpin(); }
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(e.code === "Space" || e.key === " "){
+      e.preventDefault();
+      trigger();
+    }
+  });
+  document.addEventListener('click', trigger);
+  document.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    trigger();
+  }, { passive: false });
+})();
+</script>
+</body>
+</html>
