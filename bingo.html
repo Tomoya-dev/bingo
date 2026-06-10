@@ -11,10 +11,6 @@
     background: #ffffff;
     color: #000000;
     font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     min-height: 100vh;
     min-height: 100dvh;
     user-select: none;
@@ -23,8 +19,22 @@
     overflow: hidden;
     cursor: pointer;
   }
+  /* full-screen flex column: number area on top, history pinned at bottom */
+  #wrap {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #stage {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+  }
   #num {
-    font-size: min(48vw, 58vh);
+    font-size: min(40vw, 46vh);
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -34,26 +44,25 @@
   #num.final { color: #e0000d; }
   #count {
     position: fixed;
-    top: max(16px, env(safe-area-inset-top));
-    right: max(16px, env(safe-area-inset-right));
+    top: max(14px, env(safe-area-inset-top));
+    right: max(14px, env(safe-area-inset-right));
     font-size: clamp(16px, 4vw, 24px);
     font-weight: 600;
     color: #666666;
     font-variant-numeric: tabular-nums;
+    z-index: 2;
   }
   #history {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 10px max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-bottom));
+    flex: 0 0 auto;
+    border-top: 1px solid #eeeeee;
+    padding: 10px max(12px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-bottom));
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     justify-content: center;
-    align-content: flex-end;
-    max-height: 28vh;
-    overflow: hidden;
+    align-content: flex-start;
+    max-height: 34vh;
+    overflow-y: auto;
   }
   .chip {
     font-size: clamp(15px, 3.4vw, 22px);
@@ -61,7 +70,7 @@
     color: #333333;
     background: #f0f0f0;
     border-radius: 999px;
-    padding: 4px 12px;
+    padding: 5px 13px;
     font-variant-numeric: tabular-nums;
   }
   .chip.last { background: #ffd9dc; color: #e0000d; }
@@ -69,8 +78,10 @@
 </head>
 <body>
 <div id="count">0</div>
-<div id="num">—</div>
-<div id="history"></div>
+<div id="wrap">
+  <div id="stage"><div id="num">—</div></div>
+  <div id="history"></div>
+</div>
 <audio id="roll" preload="auto" playsinline webkit-playsinline>
   <source src="roll.mp3" type="audio/mpeg">
 </audio>
@@ -124,6 +135,7 @@
     c.className = 'chip' + (isLast ? ' last' : '');
     c.textContent = value;
     historyEl.appendChild(c);
+    historyEl.scrollTop = historyEl.scrollHeight;
   }
 
   function lockResult(){
