@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ビンゴ</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -24,7 +24,7 @@
     cursor: pointer;
   }
   #num {
-    font-size: min(55vw, 70vh);
+    font-size: min(48vw, 58vh);
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -41,23 +41,47 @@
     color: #666666;
     font-variant-numeric: tabular-nums;
   }
+  #history {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    align-content: flex-end;
+    max-height: 28vh;
+    overflow: hidden;
+  }
+  .chip {
+    font-size: clamp(15px, 3.4vw, 22px);
+    font-weight: 600;
+    color: #333333;
+    background: #f0f0f0;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.last { background: #ffd9dc; color: #e0000d; }
 </style>
 </head>
 <body>
 <div id="count">0</div>
 <div id="num">—</div>
-<audio id="roll" preload="auto">
+<div id="history"></div>
+<audio id="roll" preload="auto" playsinline webkit-playsinline>
   <source src="roll.mp3" type="audio/mpeg">
 </audio>
 
 <script>
 (function(){
   var LOCK_TIME = 2.52;
-  var NUMBERS = [45, 41, 33, 19, 38, 11, 31, 29, 4, 46, 9, 23, 3, 32, 37];        // the only numbers that can appear
-  var FORCE_LAST = 37;   // must come out on the final draw
+  var NUMBERS = [45, 41, 33, 19, 38, 11, 31, 29, 4, 46, 9, 23, 3, 32, 37];
+  var FORCE_LAST = 37;
   var TOTAL = NUMBERS.length;
 
-  // Build the draw order: shuffle the non-final numbers, put FORCE_LAST at the end.
   function buildOrder(){
     var rest = NUMBERS.filter(function(n){ return n !== FORCE_LAST; });
     for(var i = rest.length - 1; i > 0; i--){
@@ -69,31 +93,51 @@
   }
   var order = buildOrder();
 
-  var drawnSet = new Set();
   var count = 0;
   var state = "idle";
   var finished = false;
   var spinIv = null;
   var lockTimer = null;
+  var audioUnlocked = false;
   var rollAudio = document.getElementById('roll');
   var numEl = document.getElementById('num');
   var countEl = document.getElementById('count');
+  var historyEl = document.getElementById('history');
 
-  // during spin, flicker through ALL 15 numbers (visual only, independent of draws)
+  function unlockAudio(){
+    if(audioUnlocked) return;
+    audioUnlocked = true;
+    var p = rollAudio.play();
+    if(p && p.then){
+      p.then(function(){ rollAudio.pause(); rollAudio.currentTime = 0; }).catch(function(){});
+    } else {
+      try { rollAudio.pause(); rollAudio.currentTime = 0; } catch(e){}
+    }
+  }
+
   function spinTick(){
     numEl.textContent = NUMBERS[Math.floor(Math.random() * NUMBERS.length)];
+  }
+
+  function addChip(value, isLast){
+    var c = document.createElement('span');
+    c.className = 'chip' + (isLast ? ' last' : '');
+    c.textContent = value;
+    historyEl.appendChild(c);
   }
 
   function lockResult(){
     if(state !== "spinning") return;
     clearInterval(spinIv);
-    var pick = order[count];   // deterministic order, FORCE_LAST is last
-    drawnSet.add(pick);
+    if(lockTimer){ clearTimeout(lockTimer); lockTimer = null; }
+    var pick = order[count];
     count++;
     numEl.textContent = pick;
     countEl.textContent = count;
+    var isLast = (count >= TOTAL);
+    addChip(pick, isLast);
     state = "idle";
-    if(count >= TOTAL){
+    if(isLast){
       numEl.classList.add('final');
       finished = true;
     }
@@ -126,11 +170,15 @@
       trigger();
     }
   });
-  document.addEventListener('click', trigger);
-  document.addEventListener('touchstart', function(e){
+  document.addEventListener('touchend', function(e){
     e.preventDefault();
+    unlockAudio();
     trigger();
   }, { passive: false });
+  document.addEventListener('click', function(){
+    unlockAudio();
+    trigger();
+  });
 })();
 </script>
 </body>
